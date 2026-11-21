@@ -1,9 +1,13 @@
 ---
 name: jiege-writing
-description: 中文学术课程论文、文献综述、方法学评述的全流程写作与 Word 排版技能。当用户要求写课程论文、读书报告、文献综述，或要把 Markdown、口述材料整理成符合学校格式规范的 .docx，或需要处理中文学术文档的字体字号、上标、行距、交叉引用、GB/T 7714 参考文献著录时使用。覆盖选题确认、文献核验、正文撰写、去 AI 味改写、docx 生成与交付自检。适用于课程作业与期刊投稿初稿，不适用于学位论文（三级标题、图表题注、目录页码尚未支持）。
+description: 中文学术课程论文、文献综述、方法学评述的全流程写作与 Word 排版技能。当用户要求写课程论文、读书报告、文献综述，或要把 Markdown、口述材料整理成符合学校格式规范的 .docx，或需要处理中文学术文档的字体字号、上标、行距、交叉引用、GB/T 7714 参考文献著录时使用。覆盖选题确认、文献核验、正文撰写、去 AI 味改写、docx 生成与交付自检。支持一至三级标题、多文献合并引用、图表字体规范与坐标图轴对齐，适用于课程作业与期刊投稿初稿。
+version: 2.1.3
+display_name: 杰哥写作
+display_name_en: Jiege Writing
+description_zh: 中文学术课程论文的全流程写作与 Word 排版，含文献核验、交叉引用、GB/T 7714 著录与交付自检。
+description_en: End-to-end Chinese academic course-paper writing and Word typesetting, covering reference verification, cross-references, GB/T 7714 citations and pre-submission checks.
 license: MIT
 metadata:
-  version: 2.0.0
   scope: 中文课程论文
   language: zh-CN
 agent_created: true

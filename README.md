@@ -67,7 +67,7 @@ gemini skills install https://github.com/mio929/jiege-writing.git --path skills/
 
 最快的方式是打开分享页，点「在 WorkBuddy 打开」直接安装：
 
-**<https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261121TpQBDMaOk7n06idu1lToib&share_way=link&sig=CKwpmHyjvwRuenSl>**
+**<https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261121smeC0xPM4tyjjegy8ZUT4F&share_way=link&sig=R59RbmcUtoVdfb1f>**
 
 > ⚠️ 这个分享链接**只能用于国内版 WorkBuddy**（workbuddy.cn），海外版 WorkBuddy 无法识别，请改用下面的手动方式。
 > 分享页会显示分享者昵称，除此之外不含任何账号、学校或使用记录信息。链接若失效，说明分享已撤回，同样走手动方式。
