@@ -125,6 +125,18 @@ def inspect(path, refs_title="参考文献", target=None, by="body"):
         m = re.search(r"REF\s+(\S+)", i)
         if m:
             cited.add(int(m.group(1)[-3:]))
+
+    # 多文献合并引用是纯文本 [1-3,5]，不产生域，正文扫一遍补齐
+    for t in text[:cut]:
+        for mm in re.finditer(r"\[(\d+(?:\s*[-,，]\s*\d+)*)\]", t):
+            for seg in re.split(r"[,，]", mm.group(1)):
+                seg = seg.strip()
+                if "-" in seg:
+                    a, b = [x.strip() for x in seg.split("-", 1)]
+                    if a.isdigit() and b.isdigit():
+                        cited.update(range(int(a), int(b) + 1))
+                elif seg.isdigit():
+                    cited.add(int(seg))
     if entries and len(cited) != entries:
         problems.append("正文引用 %d 条，文末条目 %d 条，不一一对应" % (len(cited), entries))
 

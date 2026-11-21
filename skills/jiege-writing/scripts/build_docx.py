@@ -490,6 +490,33 @@ def build(spec, out_path, check_only=False):
     return {"refs": len(seq), "headings": len(secs), "words": stats, "out": out_path}
 
 
+def compress_nums(nums):
+    """把编号压成区间：连续 3 个以上用短横线，2 个仍用逗号分开（GB/T 7714 习惯）。
+
+    [1,2,3,5,7,8] -> [(1,3), (5,None), (7,8)]
+    """
+    nums = sorted(set(nums))
+    out, i = [], 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        if j - i >= 2:
+            out.append((nums[i], nums[j]))
+        else:
+            out.extend((n, None) for n in nums[i:j + 1])
+        i = j + 1
+    return out
+
+
+def format_multi(nums):
+    """[1,2,3] -> '[1-3]'；[1,3] -> '[1,3]'；[1,3,4,5,8] -> '[1,3-5,8]'。"""
+    parts = []
+    for a, b in compress_nums(nums):
+        parts.append("%d-%d" % (a, b) if b is not None else str(a))
+    return "[%s]" % ",".join(parts)
+
+
 def fill(p, text, size, bold, order, ref_pt):
     pos = 0
     for m in TOKEN.finditer(text):
@@ -500,11 +527,14 @@ def fill(p, text, size, bold, order, ref_pt):
             _field(p, " REF %s%s \\h " % (BM_SEC, body[1:].replace(".", "_")), body[1:], size)
         else:
             nums = sorted(order[k.strip()] for k in body.split("|"))
-            if len(nums) != 1:
-                raise SystemExit("多文献合并引用需手工处理：%s" % body)
-            # 编号格式已是 [%1]，此处不再包方括号，否则渲染成 [[1]]
-            _field(p, " REF %s%03d \\n \\h " % (BM_REF, nums[0]),
-                   "[%d]" % nums[0], size, sup=True)
+            if len(nums) == 1:
+                # 单条：用域，可 Ctrl+单击跳转。编号格式已是 [%1]，不再包括号
+                _field(p, " REF %s%03d \\n \\h " % (BM_REF, nums[0]),
+                       "[%d]" % nums[0], size, sup=True)
+            else:
+                # 多条：按区间压缩成纯文本。Word 的域无法表示 [1-3] 这种范围，
+                # 每次构建都会重算编号，所以写死的文本始终与文献表一致。
+                add_run(p, format_multi(nums), size, sup=True)
         pos = m.end()
     if pos < len(text):
         add_run(p, text[pos:], size, bold)

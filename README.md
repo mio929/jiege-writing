@@ -157,7 +157,6 @@ python scripts/check_docx.py 论文.docx --target 4500-5000 --by word
 
 | 限制 | 说明 |
 |---|---|
-| 合并引用 | `{{a\|b}}` 抛 `SystemExit`，`[1-3]` 需手工处理 |
 | 表格 | spec 无 table block；`check_docx.py` 对表格内段落是盲区 |
 | 图表题注 | 无题注机制，交叉引用要在 Word 里手工插 |
 | 页码 / 目录 | 未实现 |
