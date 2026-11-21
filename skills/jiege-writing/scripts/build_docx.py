@@ -27,7 +27,7 @@ CN_FONT = "宋体"
 EN_FONT = "Times New Roman"
 
 TOKEN = re.compile(r"\{\{([^}]+)\}\}")
-HEAD_NUM = re.compile(r"^(\d+(?:\.\d+)?)\s+(.*)$")
+HEAD_NUM = re.compile(r"^(\d+(?:\.\d+)*)\s+(.*)$")
 CJK = re.compile(r"[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef\u2018\u2019\u201c\u201d]")
 GREEK = re.compile(r"[\u0370-\u03ff\u1f00-\u1fff]")
 GREEK_SPLIT = re.compile(r"([\u0370-\u03ff\u1f00-\u1fff]+)")
@@ -456,12 +456,15 @@ def build(spec, out_path, check_only=False):
     sec_ids = {s: ID_SEC_BASE + i for i, s in enumerate(secs, start=1)}
     for kind, text in blocks:
         if kind == "h1":
-            top = "." not in text.split(" ")[0]
-            p = new_para(doc, before=18 if top else 12, after=6 if top else 4,
-                         line=line, body_pt=body_pt)
-            p.paragraph_format.keep_with_next = True
             m = HEAD_NUM.match(text)
+            if m is None:
+                raise SystemExit(
+                    "标题需以「编号 + 半角空格」开头，如「1 引言」「2.1 方法」「2.1.1 样地设置」：%s" % text)
             num, rest = m.group(1), m.group(2)
+            depth = num.count(".")
+            before, after = {0: (18, 6), 1: (12, 4)}.get(depth, (6, 3))
+            p = new_para(doc, before=before, after=after, line=line, body_pt=body_pt)
+            p.paragraph_format.keep_with_next = True
             bid = sec_ids[num]
             open_bookmark(p, BM_SEC + num.replace(".", "_"), bid)
             add_run(p, num, body_pt, bold=True)

@@ -23,7 +23,7 @@
 | 正文首行缩进 | 2 字符 | `w:ind w:firstLine="480" w:firstLineChars="200"` |
 | 参考文献悬挂缩进 | 21 pt | `w:ind w:left="420" w:hanging="420"` + `w:tabs` 制表位 420 |
 | 关闭孤行控制 | — | `w:widowControl w:val="0"` |
-| 段前/段后 | 标题 6/4 pt；正文 0 | `w:spacing w:before w:after`（单位 1/20 pt） |
+| 标题段前/段后 | 一级 18/6、二级 12/4、三级 6/3 pt | `w:spacing w:before w:after`（单位 1/20 pt） |
 
 `firstLineChars="200"` 是关键：只给 `firstLine` 是绝对磅值，换字号会错位；带 `Chars` 才按「字符」缩进，Word 里显示为「首行缩进 2 字符」。
 
@@ -50,6 +50,22 @@
 - `ascii` 管 U+0000–U+007F，`hAnsi` 管其余拉丁字符（含希腊、西里尔），`eastAsia` 管中日韩，`cs` 管复杂文种。
 - `hint` 决定**两可字符**（U+2018–201D 引号、U+2026 省略号、U+2014 破折号）走哪套字体：`eastAsia` 走中文，`default` 走西文。
 - 文档默认（`docDefaults/w:rPrDefault`）、`styles.xml` 里每个 `w:rFonts`、每个 run 的 `rPr` 都要改。只改 run 不够——Word 新建段落、插入题注时会取样式里的值。
+
+## 图表
+
+图和表里的文字，字体规则与正文一致（西文 Times New Roman、中文宋体），字号另有一套：
+
+| 位置 | 字号 | 说明 |
+|---|---|---|
+| 图题、表题 | 五号（10.5 pt）加粗 | 居中；表题在表上方，图题在图下方 |
+| 表内文字 | 五号（10.5 pt） | 表头加粗，短文本列居中 |
+| 图内轴标签 | 9 pt | 按图宽 8–9 cm 定，出图后不要再缩放 |
+| 图内刻度标签 | 8.5 pt | 比轴标签小半磅 |
+| 图例 | 8.5 pt | 不加边框（`frameon=False`） |
+
+表格靠后处理逐格设 `rFonts`，含中文的 run 必须带 `hint="eastAsia"`，否则 Word 会用 TNR 去排中文，字宽对不上、单元格被撑开。
+
+插图用 `scripts/plot_style.py`：`font.family` 设成 `["Times New Roman", "SimSun"]`，靠 matplotlib 的逐字符 fallback 做中英分离；`new_axes()` 把 spine 固定为 `('axes', 0)`，不外扩。spine 动了而刻度没动，就是「轴线与刻度线错位」的根因，`audit(ax)` 会在出图前把这类问题报出来。
 
 ## 页面
 

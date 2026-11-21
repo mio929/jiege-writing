@@ -108,7 +108,7 @@ def inspect(path, refs_title="参考文献", target=None, by="body"):
         if re.match(r"^表\s*\d", s):
             caps += len(re.findall(r"[\u4e00-\u9fff]", s))
             continue
-        if re.match(r"^\d+(\.\d+)?\s\S", s) and len(s) < 40:
+        if re.match(r"^\d+(\.\d+)*\s\S", s) and len(s) < 40:
             heads += len(re.findall(r"[\u4e00-\u9fff]", s))
             continue
         body_parts.append(s)
@@ -168,7 +168,7 @@ def inspect(path, refs_title="参考文献", target=None, by="body"):
             problems.append("%s %d 不在目标区间 %d–%d（差 %d 字）"
                             % (label, val, lo, hi, gap))
     heads = [t for t in text[:cut]
-             if re.match(r"^\d+(\.\d+)?\s\S", t) and len(t) < 40]
+             if re.match(r"^\d+(\.\d+)*\s\S", t) and len(t) < 40]
     print("标题 %d 个：%s" % (len(heads), " / ".join(h.split()[0] for h in heads)))
 
     print()
