@@ -28,7 +28,7 @@
 
 **成因**：列表定义里 `w:suff` 为 `space` 时，编号后只跟一个空格，文字起点随编号宽度浮动。
 
-**改法**：`w:suff w:val="tab"`，同时在段落上设 `w:tabs` 制表位（与悬挂缩进同值，如 480 twips），文字就固定对齐到制表位。
+**改法**：`w:suff w:val="tab"`，同时在段落上设 `w:tabs` 制表位（与悬挂缩进同值，如 420 twips），文字就固定对齐到制表位。
 
 ### 参考文献编号是「1」不是「[1]」
 
@@ -56,6 +56,38 @@
 
 **改法**：生成时把缓存值写成正确编号，用户打开即正确；日后按 Ctrl+A → F9 会重算，结果一致。
 
+## 表格类
+
+### 设了三线表边框，Word 打开提示文件损坏
+
+**成因**：`w:tblBorders` 被直接 `append` 到 `tblPr` 末尾，打乱了 `tblPr` 的子元素顺序（schema 要求 `tblBorders` 在 `tblLook` 之前）。
+
+**改法**：用 `insert_element_before` 指定后继元素：
+
+```python
+pr.insert_element_before(borders, "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook")
+```
+
+同理，`w:tcBorders` 要插在 `w:shd`、`w:noWrap`、`w:tcMar`、`w:vAlign` 之前。
+
+### 表头下的细线设不上
+
+**成因**：整表的 `insideH` 管所有内横线，一设就把每行之间都画上；不设则表头下也是空的。
+
+**改法**：`tblBorders` 里把 `insideH` 设为 `none`，再给第一行每个单元格单独加 `tcBorders` 的 `bottom`（`sz="6"`，即 0.75 pt）。
+
+### 表格紧贴下一段正文
+
+**成因**：表格不是段落，`spacing` 不作用于它；表格后第一个段落若 `before=0`，视觉上就贴住了。
+
+**改法**：取 `tbl._tbl.getnext()` 找到下一个 `w:p`，把它的 `pPr/spacing/@w:before` 设成 120（6 pt）。注意要在删除占位段**之后**再找，否则找到的是占位空段。
+
+### 单元格里的文字断得很难看
+
+**成因**：列宽按「总宽 ÷ 列数」平均分，没考虑五号字一个汉字约 0.37 cm、单元格左右内边距各 0.19 cm。
+
+**改法**：按实际字数分配列宽，并在内容里用换行符分段，把换行点控制在语义边界（如两篇文献之间），不要让它自己断在「Jiang」和「等」中间。
+
 ## 文档属性类
 
 ### Word 标题栏显示「兼容性模式」
@@ -77,6 +109,20 @@
 **成因**：会话处于锁屏/非交互状态，或存在多个残留的 `WINWORD.EXE`。此时 `Documents.Open` 一调就挂，但 `app.Name` 之类的静态属性还能读。
 
 **改法**：改用纯 OOXML 操作，不要依赖 Word 渲染。清理残留进程时按「无窗口标题 + 启动时间在最近若干分钟」精确筛选，别误杀用户正在编辑的窗口。
+
+### Word COM 报 `0x80010001 RPC_E_CALL_REJECTED`
+
+**现象**：`Documents.Open` 能成功，但随后的 `ExportAsFixedFormat`、`SaveAs2`、`ComputeStatistics` 全部被拒。加延时重试、改 `Visible=$true`、杀进程重来、换文件名，都不稳定。
+
+**成因**：隐藏实例的 UI 消息泵没有在跑，Word 在等一个模态对话框（未激活提示、登录窗、受保护的视图）时会把所有自动化调用挡回去。
+
+**改法**：别在 docx 校验环节依赖 Word 导出 PDF。改为「在 Word 里人工目视」这一条，或用 LibreOffice 命令行兜底：
+
+```bash
+soffice --headless --convert-to pdf 论文.docx
+```
+
+真要用 COM，先把 Word 手动打开一次、登录并关掉所有弹窗，再跑脚本。
 
 ### 读 PDF 要求文件读出乱码
 

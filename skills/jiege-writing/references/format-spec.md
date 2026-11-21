@@ -21,7 +21,7 @@
 | 1.5 倍行距 | 1.5 | `w:spacing w:line="360" w:lineRule="auto"` |
 | 单倍 | 1.0 | `w:line="240"` |
 | 正文首行缩进 | 2 字符 | `w:ind w:firstLine="480" w:firstLineChars="200"` |
-| 参考文献悬挂缩进 | 24 pt | `w:ind w:left="480" w:hanging="480"` + `w:tabs` 制表位 480 |
+| 参考文献悬挂缩进 | 21 pt | `w:ind w:left="420" w:hanging="420"` + `w:tabs` 制表位 420 |
 | 关闭孤行控制 | — | `w:widowControl w:val="0"` |
 | 段前/段后 | 标题 6/4 pt；正文 0 | `w:spacing w:before w:after`（单位 1/20 pt） |
 
@@ -61,5 +61,5 @@ A4（`w:page` 12240 × 16838 twips，即 21 × 29.7 cm），页边距上下 2.54
 
 - 标题用「一、二、三」而非阿拉伯数字：`HEAD_NUM` 正则换成 `^([一二三四五六七八九十]+)、\s*`
 - 正文要求仿宋_GB2312、三号、行距 28 磅：把 `CN_FONT` 改掉，`line` 换成固定值（`w:line="560" w:lineRule="exact"`）
-- 参考文献要求单倍行距、无 DOI：spec 里 `line` 调 1.0，`format_ref` 不传 `doi`
+- 参考文献要求单倍行距、无 DOI：spec 里 `line` 调 1.0；DOI 默认不输出，不必额外处理
 - 要求页脚页码：`sectPr` 里加 `footerReference`，再写一个 `PAGE` 域，本脚本未内置

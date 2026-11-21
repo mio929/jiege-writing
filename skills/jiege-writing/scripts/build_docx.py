@@ -36,7 +36,7 @@ BM_REF = "_RefW"
 BM_SEC = "_Sec"
 ID_REF_BASE = 500
 ID_SEC_BASE = 700
-TAB_TWIPS = 480          # 参考文献悬挂缩进与制表位（24 pt）
+TAB_TWIPS = 420          # 参考文献悬挂缩进与制表位（21 pt）
 
 PPR_SUCCESSORS = (
     "w:suppressLineNumbers", "w:pBdr", "w:shd", "w:tabs", "w:suppressAutoHyphens",
@@ -253,21 +253,88 @@ def close_bookmark(p, bid):
 
 
 # ------------------------------------------------------------------ 参考文献格式化
-def format_ref(authors, title, journal, year, vol, issue, pages, doi=""):
-    """GB/T 7714-2025 期刊条目。标点后空一格，DOI 置于末尾。"""
-    s = "%s. %s[J]. %s, %s, %s" % (authors, title, journal, year, vol)
-    if issue:
-        s += "(%s)" % issue
-    s += ": %s." % pages
-    if doi:
-        s += " DOI: %s." % doi
-    return s
+CN_P = {"sep": "，", "dot": "．", "colon": "：", "lp": "（", "rp": "）"}
+EN_P = {"sep": ", ", "dot": ". ", "colon": ": ", "lp": "(", "rp": ")"}
+CJK_RX = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _is_cn(*texts):
+    """任一处出现汉字即按中文条目处理，标点随之切换。"""
+    return any(CJK_RX.search(t or "") for t in texts)
+
+
+def _names(authors, cn):
+    """责任者超过 3 人取前 3 位，中文补「等」，西文补「et al」。"""
+    if isinstance(authors, str):
+        if cn:
+            return authors.replace(", ", CN_P["sep"]).replace(",", CN_P["sep"])
+        return authors
+    names = [n for n in authors if n]
+    if not names:
+        return ""
+    if len(names) > 3:
+        head = (CN_P["sep"] if cn else EN_P["sep"]).join(names[:3])
+        return head + ("，等" if cn else ", et al")
+    return (CN_P["sep"] if cn else EN_P["sep"]).join(names)
+
+
+def _publication(ref, cn, kind):
+    """期刊给「年，卷（期）：页」，图书与学位论文给「出版地：出版者，年」。"""
+    P = CN_P if cn else EN_P
+    end = CN_P["dot"] if cn else "."
+    if kind in ("J", "C", "A"):
+        s = P["sep"] + str(ref.get("year", ""))
+        if ref.get("vol"):
+            s += P["sep"] + str(ref["vol"])
+        if ref.get("issue"):
+            s += P["lp"] + str(ref["issue"]) + P["rp"]
+        if ref.get("pages"):
+            s += P["colon"] + str(ref["pages"])
+        return s + end
+    s = "%s%s%s%s%s" % (ref.get("place", ""), P["colon"], ref.get("publisher", ""),
+                        P["sep"], ref.get("year", ""))
+    if ref.get("pages"):
+        s += P["colon"] + str(ref["pages"])
+    return s + end
+
+
+def format_ref(ref):
+    """把一条文献著录成 GB/T 7714 字符串。
+
+    两种输入都认：
+      - 字典 {"authors": [...], "title", "type", "journal" 或 "publisher", "year", ...}
+      - 8/9 元组 [作者, 题名, 刊名, 年, 卷, 期, 页码, DOI, 类型]
+
+    中文条目标点用全角（，．：（）），西文条目用半角；DOI 不列入条目。
+    类型取 J（期刊）、M（图书）、D（学位论文）、C/A（会议）、R（报告）、S（标准）。
+    """
+    if isinstance(ref, dict):
+        kind = (ref.get("type") or "J").upper()
+        cn = ref.get("lang") == "cn" or _is_cn(ref.get("title"), ref.get("journal"))
+        P = CN_P if cn else EN_P
+        s = "%s%s%s[%s]%s" % (_names(ref.get("authors", ""), cn), P["dot"],
+                               ref.get("title", ""), kind, P["dot"])
+        if kind in ("J", "C", "A"):
+            s += str(ref.get("journal", ""))
+        return s + _publication(ref, cn, kind)
+
+    vals = list(ref) + [""] * 9
+    authors, title, journal, year, vol, issue, pages, _doi, kind = vals[:9]
+    kind = (kind or "J").upper()
+    cn = _is_cn(title, journal)
+    P = CN_P if cn else EN_P
+    s = "%s%s%s[%s]%s" % (_names(authors, cn), P["dot"], title, kind, P["dot"])
+    if kind in ("J", "C", "A"):
+        s += str(journal)
+    return s + _publication(
+        dict(year=year, vol=vol, issue=issue, pages=pages, place="", publisher=""),
+        cn, kind)
 
 
 def resolve_refs(raw):
     out = {}
     for k, v in raw.items():
-        out[k] = format_ref(*v) if isinstance(v, (list, tuple)) else str(v)
+        out[k] = format_ref(v) if isinstance(v, (list, tuple, dict)) else str(v)
     return out
 
 
@@ -376,14 +443,14 @@ def fill(p, text, size, bold, order, ref_pt):
             add_run(p, text[pos:m.start()], size, bold)
         body = m.group(1)
         if body.startswith("@"):
-            _field(p, " REF %s%s " % (BM_SEC, body[1:].replace(".", "_")), body[1:], size)
+            _field(p, " REF %s%s \\h " % (BM_SEC, body[1:].replace(".", "_")), body[1:], size)
         else:
             nums = sorted(order[k.strip()] for k in body.split("|"))
             if len(nums) != 1:
                 raise SystemExit("多文献合并引用需手工处理：%s" % body)
-            add_run(p, "[", size, sup=True)
-            _field(p, " REF %s%03d \\n \\h " % (BM_REF, nums[0]), str(nums[0]), size, sup=True)
-            add_run(p, "]", size, sup=True)
+            # 编号格式已是 [%1]，此处不再包方括号，否则渲染成 [[1]]
+            _field(p, " REF %s%03d \\n \\h " % (BM_REF, nums[0]),
+                   "[%d]" % nums[0], size, sup=True)
         pos = m.end()
     if pos < len(text):
         add_run(p, text[pos:], size, bold)

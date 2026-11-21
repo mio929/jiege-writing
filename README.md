@@ -1,40 +1,149 @@
-# 杰哥写作
+# 杰哥写作 · jiege-writing
 
-中文学术课程论文、文献综述、研究方案类 Word 文档的全流程写作与排版技能，用于 WorkBuddy。
+把中文课程论文从作业要求做到可提交的 Word 成稿：读要求、核验文献、写正文、排版、自检。
 
-从作业要求到可提交的成稿一次走完：拆解要求、核验文献、撰写正文、生成格式化 docx、交叉引用、交付自检。
+按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 Claude Code、OpenAI Codex、Gemini CLI、WorkBuddy、Cursor、VS Code Copilot。
 
-## 内容
+> **适用范围**
+> 主要面向中文**课程论文、读书报告、文献综述、方法学评述**，篇幅 3000–8000 字，一二级标题结构，10–30 条参考文献。
+> **不适用于学位论文**。三级标题（`2.1.1`）会直接抛异常，图表题注、目录、页码也没有实现。写毕业论文请先把 `SKILL.md` 末尾「已知限制」补齐。
 
-| 文件 | 作用 |
+> **参考文献请务必自行复核**
+> 脚本给的是通行默认值，不是标准答案。各校模板常在这三处不一致：
+> - GB/T 7714 用 **2015 版**还是 **2025 版**（西文姓氏全大写 vs 只首字母大写）
+> - 中文条目用**全角标点**（`，．：（）`）还是**半角标点**
+> - **列不列 DOI**
+>
+> 交稿前请逐条对照学校给的示例。技能里的 `references/gbt7714.md` 讲了怎么改、改哪里。
+
+## 它解决什么
+
+写一篇中文课程论文，真正耗时的不是想观点，是这四件事：
+
+| 痛点 | 这个技能怎么做 |
 |---|---|
-| `SKILL.md` | 主流程：六步工作法、格式硬指标、多轮修订规矩 |
-| `scripts/build_docx.py` | 稿件 JSON → 规范 docx，含自动编号、交叉引用、字体处理 |
-| `scripts/check_docx.py` | 交付前自检，读回 docx 校验字体、字号、域、孤行控制、字数 |
-| `assets/example_spec.json` | 稿件模板，演示 spec 结构与引用标记 |
-| `references/format-spec.md` | 字号字体参数表与 OOXML 键值、分页控制 |
-| `references/cross-reference.md` | 交叉引用的域机制、手工步骤、上标与排错 |
-| `references/gbt7714.md` | GB/T 7714-2025 著录规则、核验流程、常见错误 |
-| `references/docx-pitfalls.md` | 排版踩坑清单：现象 → 成因 → 改法 |
-| `references/writing-guide.md` | 结构编排、篇幅配比、语体与去 AI 味 |
-
-## 用法
-
-```bash
-python scripts/build_docx.py spec.json -o 论文.docx
-python scripts/check_docx.py 论文.docx --strict
-```
-
-稿件写在 `spec.json` 里，正文用 `{{文献键}}` 标引用，`refs` 给结构化字段，脚本按 GB/T 7714-2025 拼装并自动编号。详细说明见 `SKILL.md`。
+| 作业要求散在 PDF、截图、群消息里，字号行距容易漏 | 先渲染成图看版式，再提文本抠细节；拆成可勾选清单 |
+| 参考文献凭印象写，卷期页错、作者数不合规 | 强制走 DOI 回查，`format_ref()` 按语种切标点、自动截断作者、区分六种文献类型 |
+| Word 排版反复调，字体混入 Arial、上标大小不一、孤行没关 | 稿件与排版分离，`build_docx.py` 一次生成；`check_docx.py` 读回校验九项 |
+| 改八轮之后格式全乱，说不清哪次引入的 | spec 与脚本分离，改文字不动格式；每轮报数字指标 |
 
 ## 安装
 
-把 `jiege-writing/` 整个目录放进 `~/.workbuddy/skills/`（用户级）或项目的 `.workbuddy/skills/`（项目级）。
+仓库里技能本体在 `skills/jiege-writing/`，整目录拷到对应位置即可。
+
+```bash
+git clone https://github.com/mio929/jiege-writing.git
+```
+
+**Claude Code**
+
+```bash
+cp -r jiege-writing/skills/jiege-writing ~/.claude/skills/
+# 项目内共享则放到 .claude/skills/
+```
+
+**OpenAI Codex**
+
+```bash
+cp -r jiege-writing/skills/jiege-writing ~/.agents/skills/
+# 也认 ~/.codex/skills/，项目级用 .agents/skills/
+```
+
+**Gemini CLI**
+
+```bash
+gemini skills install https://github.com/mio929/jiege-writing.git --path skills/jiege-writing
+# 或手动拷到 ~/.gemini/skills/
+```
+
+**WorkBuddy**
+
+```bash
+cp -r jiege-writing/skills/jiege-writing ~/.workbuddy/skills/
+# 项目级放 .workbuddy/skills/
+```
+
+**Cursor / VS Code Copilot**
+
+Cursor 读 `.agents/skills/` 与 `~/.cursor/skills/`；Copilot 读 `~/.copilot/skills/` 与 `.github/skills/`。两者也都兼容 `.claude/skills/`。
+
+装完重启会话。Claude Code 用 `/jiege-writing` 显式调用，其余平台靠描述自动匹配。
 
 ## 依赖
 
-Python 3.9+，`python-docx`、`lxml`。
+Python 3.9+，两个包：
+
+```bash
+pip install python-docx lxml
+```
+
+读 PDF 要求时另需 `pymupdf`。Word 与图片不需要额外依赖——图片走多模态直接读，不走 OCR。
+
+## 快速开始
+
+```bash
+python skills/jiege-writing/scripts/build_docx.py \
+       skills/jiege-writing/assets/example_spec.json -o 试排.docx
+
+python skills/jiege-writing/scripts/check_docx.py 试排.docx --strict
+```
+
+试排产出是一份三段的演示文档，用来确认字体、域、编号都正常。确认无误后改 spec 写自己的。
+
+## 目录结构
+
+```
+skills/jiege-writing/
+├── SKILL.md                     # 主流程：六步工作法、格式硬指标、已知限制
+├── references/
+│   ├── input-formats.md         # 从 PDF / Word / 图片里读作业要求
+│   ├── checklist.md             # 开工前与交稿前的双份清单
+│   ├── case-study.md            # 一篇 4600 字论文的完整复盘，含表格补丁写法
+│   ├── writing-guide.md         # 结构编排、篇幅配比、语体与去 AI 味
+│   ├── format-spec.md           # 字号字体参数表与 OOXML 键值
+│   ├── gbt7714.md               # 六类文献格式、核验流程、常见错误
+│   ├── cross-reference.md       # 交叉引用的域机制与手工步骤
+│   └── docx-pitfalls.md         # 踩坑清单：现象 → 成因 → 改法
+├── scripts/
+│   ├── build_docx.py            # 稿件 JSON → 规范 docx
+│   └── check_docx.py            # 交付前自检
+└── assets/
+    └── example_spec.json        # 最小可运行模板
+
+examples/
+├── sample-paper.spec.json       # 完整示例：一篇 4600 字方法学评述的源文件
+└── sample-paper.md              # 同上的成品全文，供直接阅读
+```
+
+## 示例
+
+`examples/sample-paper.spec.json` 是一篇实际写出来的论文源文件：《农田土壤水肥盐一体化智能调控方法评述》。4636 字正文、6 个一级章节、17 条参考文献（全部 DOI 复核）、2 个三线表。
+
+想看成品长什么样，直接读 `sample-paper.md`；想跑一遍，用 spec 重新生成：
+
+```bash
+python skills/jiege-writing/scripts/build_docx.py examples/sample-paper.spec.json -o 示例论文.docx
+```
+
+注意这个示例**不含表格**——表格要靠后处理补，做法在 `references/case-study.md` 第 4 节。
+
+## 已知限制
+
+| 限制 | 说明 |
+|---|---|
+| 三级标题 | `2.1.1 x` 抛 `AttributeError`，只能两级 |
+| 合并引用 | `{{a\|b}}` 抛 `SystemExit`，`[1-3]` 需手工处理 |
+| 表格 | spec 无 table block；`check_docx.py` 对表格内段落是盲区 |
+| 图表题注 | 无题注机制，交叉引用要在 Word 里手工插 |
+| 页码 / 目录 | 未实现 |
+| 页边距 | 写死上下 2.54、左右 3.17 cm |
+
+这些都在 `SKILL.md` 的「已知限制」里给了绕法。遇到时技能会先告诉你，不会硬扛。
 
 ## 说明
 
-示例稿件为占位内容（作者「张三」），不含任何真实论文正文。参考文献示例均为公开发表的文献。
+示例论文为虚构选题下的一次完整实跑，不含任何个人身份信息。参考文献均为公开发表的真实文献。
+
+## License
+
+MIT

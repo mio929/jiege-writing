@@ -12,9 +12,9 @@
     ["p", "这一段演示第三个引用{{stegen2013}}。若要引用章节号，可写 {{@2.1}}，构建后会插入标题编号域。"]
   ],
   "refs": {
-    "zhu2017": ["朱永官, 沈仁芳, 贺纪正, 等", "中国土壤微生物组：进展与展望", "中国科学院院刊", 2017, "32", "6", "554-565+542", "10.16418/j.issn.1000-3045.2017.06.002"],
-    "louca2018": ["Louca S, Polz M F, Mazel F, et al", "Function and functional redundancy in microbial systems", "Nature Ecology & Evolution", 2018, "2", "6", "936-943", "10.1038/s41559-018-0519-1"],
-    "stegen2013": ["Stegen J C, Lin X, Fredrickson J K, et al", "Quantifying community assembly processes and identifying features that impose them", "The ISME Journal", 2013, "7", "11", "2069-2079", "10.1038/ismej.2013.93"]
+    "zhu2017": {"authors": ["朱永官", "沈仁芳", "贺纪正", "傅伯杰"], "title": "中国土壤微生物组：进展与展望", "journal": "中国科学院院刊", "year": 2017, "vol": "32", "issue": "6", "pages": "554-565+542"},
+    "louca2018": {"authors": ["Louca S", "Polz M F", "Mazel F", "Parfrey L W"], "title": "Function and functional redundancy in microbial systems", "journal": "Nature Ecology & Evolution", "year": 2018, "vol": "2", "issue": "6", "pages": "936-943"},
+    "stegen2013": {"authors": ["Stegen J C", "Lin X", "Fredrickson J K"], "title": "Quantifying community assembly processes and identifying features that impose them", "journal": "The ISME Journal", "year": 2013, "vol": "7", "issue": "11", "pages": "2069-2079"}
   },
   "out": "demo.docx"
 }
