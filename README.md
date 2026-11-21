@@ -111,18 +111,27 @@ skills/jiege-writing/
     └── example_spec.json        # 最小可运行模板
 
 examples/
-├── sample-paper.spec.json       # 完整示例：一篇 4600 字方法学评述的源文件
-└── sample-paper.md              # 同上的成品全文，供直接阅读
+└── sample-paper.md              # 完整示例：一篇 4600 字方法学评述的成品全文
 ```
 
 ## 示例
 
-`examples/sample-paper.spec.json` 是一篇实际写出来的论文源文件：《农田土壤水肥盐一体化智能调控方法评述》。4636 字正文、6 个一级章节、17 条参考文献（全部 DOI 复核）、2 个三线表。
+`examples/sample-paper.md` 是一篇实际写出来的论文全文：《农田土壤水肥盐一体化智能调控方法评述》。4637 字正文、6 个一级章节、13 个二级小节、17 条参考文献（全部 DOI 复核）、2 个三线表。
 
-想看成品长什么样，直接读 `sample-paper.md`；想跑一遍，用 spec 重新生成：
+这篇照着技能的六步流程走完，包括两次字数调整、一次节数拆分和一轮格式自检。过程记录在 `references/case-study.md`。
+
+**顺带提醒一个容易被忽略的点**：这篇正文 4637 字，但 Word 字数统计是 **5338** —— 差的 701 字来自标题、摘要和表格，学校查字数时这些都算在内。写作前务必问清按哪个口径。
+
+字数可以在 spec 里声明，构建时自动提示越界：
+
+```json
+"word_target": [4500, 5000]
+```
+
+自检时按 Word 口径复核：
 
 ```bash
-python skills/jiege-writing/scripts/build_docx.py examples/sample-paper.spec.json -o 示例论文.docx
+python scripts/check_docx.py 论文.docx --target 4500-5000 --by word
 ```
 
 注意这个示例**不含表格**——表格要靠后处理补，做法在 `references/case-study.md` 第 4 节。

@@ -27,7 +27,7 @@ def run_text(r):
     return "".join(t.text or "" for t in r.iter(W + "t"))
 
 
-def inspect(path, refs_title="参考文献"):
+def inspect(path, refs_title="参考文献", target=None, by="body"):
     z = zipfile.ZipFile(path)
     doc = etree.fromstring(z.read("word/document.xml"))
     paras = doc.find(W + "body").findall(W + "p")
@@ -91,9 +91,34 @@ def inspect(path, refs_title="参考文献"):
     except ValueError:
         cut = len(text)
         problems.append("未找到「%s」标题行" % refs_title)
-    body = "".join(text[2:cut]) if cut > 2 else ""
+
+    # 分列统计：题目与空段跳过，摘要关键词、表题、各级标题单独计
+    front = heads = caps = 0
+    body_parts = []
+    for i, t in enumerate(text[:cut]):
+        s = t.strip()
+        if i == 0 or not s:
+            continue
+        if s.startswith("摘要：") or s.startswith("摘要:"):
+            front += len(re.findall(r"[\u4e00-\u9fff]", s))
+            continue
+        if s.startswith("关键词：") or s.startswith("关键词:"):
+            front += len(re.findall(r"[\u4e00-\u9fff]", s))
+            continue
+        if re.match(r"^表\s*\d", s):
+            caps += len(re.findall(r"[\u4e00-\u9fff]", s))
+            continue
+        if re.match(r"^\d+(\.\d+)?\s\S", s) and len(s) < 40:
+            heads += len(re.findall(r"[\u4e00-\u9fff]", s))
+            continue
+        body_parts.append(s)
+
+    body = "".join(body_parts)
     han = len(re.findall(r"[\u4e00-\u9fff]", body))
     words = len(re.findall(r"[A-Za-z][A-Za-z0-9\-.']*", body))
+    tbl_han = sum(len(re.findall(r"[\u4e00-\u9fff]", c.text))
+                  for t in d.tables for r in t.rows for c in r.cells)
+    approx = han + words + front + heads + caps + tbl_han
     entries = len(text) - cut - 1 if cut < len(text) else 0
     cited = set()
     for i in ref_fields:
@@ -126,7 +151,22 @@ def inspect(path, refs_title="参考文献"):
     print("孤行控制关闭：%d / %d" % (widow_off, len(paras)))
     print("域：文献 %d ｜章节 %d ｜书签 %d" % (len(ref_fields), len(sec_fields), len(bookmarks)))
     print("文献：%d 条，正文引用涉及 %d 条" % (entries, len(cited)))
-    print("字数：汉字 %d ｜英文词 %d ｜Word 近似 %d" % (han, words, han + words))
+    print("字数：正文 %d 汉字 + %d 英文词 ｜一览 %d ｜摘要关键词 %d ｜表题 %d ｜表格内 %d"
+          % (han, words, heads, front, caps, tbl_han))
+    print("      Word 口径估算 %d（学校多按此查，含表格）" % approx)
+    if target:
+        lo, hi = target
+        val = han if by == "body" else approx
+        label = "正文汉字" if by == "body" else "Word 估算"
+        if lo <= val <= hi:
+            print("      目标 %d–%d：达标（按%s %d）" % (lo, hi, label, val))
+            if by == "body" and approx > hi:
+                print("      注意：Word 口径为 %d，已超 %d 字。学校若按 Word 查，"
+                      "改用 --by word 复核" % (approx, approx - hi))
+        else:
+            gap = val - hi if val > hi else lo - val
+            problems.append("%s %d 不在目标区间 %d–%d（差 %d 字）"
+                            % (label, val, lo, hi, gap))
     heads = [t for t in text[:cut]
              if re.match(r"^\d+(\.\d+)?\s\S", t) and len(t) < 40]
     print("标题 %d 个：%s" % (len(heads), " / ".join(h.split()[0] for h in heads)))
@@ -145,9 +185,21 @@ def main():
     ap = argparse.ArgumentParser(description="docx 交付前自检")
     ap.add_argument("docx")
     ap.add_argument("--refs-title", default="参考文献")
+    ap.add_argument("--target", help="目标字数区间，如 4500-5000；单值按 ±5%% 展开")
+    ap.add_argument("--by", choices=["body", "word"], default="body",
+                    help="--target 按哪个口径核：body=正文汉字（默认），word=Word 估算含表格")
     ap.add_argument("--strict", action="store_true", help="有问题时退出码为 1")
     args = ap.parse_args()
-    problems = inspect(args.docx, args.refs_title)
+
+    target = None
+    if args.target:
+        nums = [int(x) for x in re.split(r"[-~,，\s]+", args.target) if x.strip()]
+        if not nums:
+            sys.exit("--target 格式不对，写成 4500-5000 或 5000")
+        target = (nums[0], nums[1]) if len(nums) > 1 else (
+            int(round(nums[0] * 0.95)), int(round(nums[0] * 1.05)))
+
+    problems = inspect(args.docx, args.refs_title, target, args.by)
     sys.exit(1 if (problems and args.strict) else 0)
 
 

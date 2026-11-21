@@ -338,6 +338,54 @@ def resolve_refs(raw):
     return out
 
 
+# ------------------------------------------------------------------ 字数
+HAN = re.compile(r"[\u4e00-\u9fff]")
+
+
+def word_stats(spec, blocks):
+    """按口径分列统计：正文、标题、摘要关键词、表格占位。
+
+    正文只算 p 段，不含 h1 标题与 __TABLE_n__ 占位段。
+    """
+    body = heads = 0
+    for kind, text in blocks:
+        clean = TOKEN.sub("", text)
+        n = len(HAN.findall(clean))
+        if kind == "h1":
+            heads += n
+        elif not text.startswith("__TABLE"):
+            body += n
+    front = sum(len(HAN.findall(x or "")) for x in (spec.get("abstract"), spec.get("keywords")))
+    return {"body": body, "headings": heads, "front": front}
+
+
+def parse_target(t):
+    """word_target 接受 [lo, hi] 或单值；单值按 ±5% 展开。"""
+    if isinstance(t, (list, tuple)) and len(t) == 2:
+        return int(t[0]), int(t[1])
+    v = int(t)
+    return int(round(v * 0.95)), int(round(v * 1.05))
+
+
+def report_words(spec, stats):
+    tgt = spec.get("word_target")
+    msg = "字数：正文 %d 汉字（另标题 %d、摘要关键词 %d）" % (
+        stats["body"], stats["headings"], stats["front"])
+    if not tgt:
+        print(msg + "；未设 word_target", file=sys.stderr)
+        return
+    lo, hi = parse_target(tgt)
+    if lo <= stats["body"] <= hi:
+        tail = "在目标区间 %d–%d 内" % (lo, hi)
+    elif stats["body"] < lo:
+        tail = "低于目标 %d–%d，差 %d 字，按论证缺口补（见 writing-guide）" % (
+            lo, hi, lo - stats["body"])
+    else:
+        tail = "超出目标 %d–%d，多 %d 字，删整段而不是等比例砍" % (
+            lo, hi, stats["body"] - hi)
+    print(msg + "；" + tail, file=sys.stderr)
+
+
 # ------------------------------------------------------------------ 构建
 def build(spec, out_path, check_only=False):
     refs = resolve_refs(spec.get("refs", {}))
@@ -377,8 +425,11 @@ def build(spec, out_path, check_only=False):
     if unused:
         print("提示：这些文献未被正文引用，不会进入列表：%s" % unused, file=sys.stderr)
 
+    stats = word_stats(spec, blocks)
+    report_words(spec, stats)
+
     if check_only:
-        return {"refs": len(seq), "headings": len(secs)}
+        return {"refs": len(seq), "headings": len(secs), "words": stats}
 
     doc = Document()
     patch_doc_defaults(doc, body_pt, line)
@@ -433,7 +484,7 @@ def build(spec, out_path, check_only=False):
         close_bookmark(p, ID_REF_BASE + i)
 
     doc.save(out_path)
-    return {"refs": len(seq), "headings": len(secs), "out": out_path}
+    return {"refs": len(seq), "headings": len(secs), "words": stats, "out": out_path}
 
 
 def fill(p, text, size, bold, order, ref_pt):
