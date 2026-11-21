@@ -84,6 +84,8 @@ spec 结构见 `assets/example_spec.json`，完整案例见 `references/case-stu
 - 确实需要合并时写 `{{a|b|c}}`，脚本自动压成 `[1-3]`：连续 3 条以上用短横线，2 条仍用逗号，不连续写成 `[1,3-5]`，乱序先排序。多引用是纯文本，不能 Ctrl+单击跳转；单条引用是可跳转的域。
 - `refs` 支持两种写法：8 元组 `[作者, 题名, 刊名, 年, 卷, 期, 页码, DOI]`，或字典（非期刊类型必需，可指定 `type` 为 M/D/C/R）。
 - 章节互引写 `{{@2.3}}`，脚本插入标题编号域。
+- 上标写下标写成 `R^{2}`、`H_{2}O`；正文里已有的 Unicode 上标字符（`²³¹`）脚本会自动转成真上标，不必手改。
+- 英文稿在 spec 里写 `"lang": "en"`：全文改用 Times New Roman，摘要与关键词标签换成 Abstract / Keywords，首行缩进改为 0.5 英寸，字数按词计。
 - `word_target` 可选，写成 `[4500, 5000]` 或 `3000`。构建与自检都会拿正文汉字数对照它，越界时打印提示但不中断；字数口径见 `references/writing-guide.md`。
 
 脚本已处理下列易错项，**不要重复实现**：中文宋体 + 西文 Times New Roman 的四字体位、中文标点的 `hint="eastAsia"`、希腊字母单独成 run、参考文献 `[1]` 自动编号配 21 pt 制表位、`REF … \n \h` 交叉引用、上标统一小四、逐段关闭孤行控制、兼容模式提到 15。
@@ -141,7 +143,9 @@ python scripts/check_docx.py 论文.docx --strict
 | 参考文献标题 | 宋体 | 小四 | 加粗 |
 | 参考文献条目 | 宋体 | 五号（10.5 pt） | 悬挂缩进 21 pt，编号 `[1]` |
 
-西文与数字一律 Times New Roman；全文不得混入其他拉丁字体。完整 OOXML 键值见 `references/format-spec.md`。
+西文与数字一律 Times New Roman；全文不得混入其他拉丁字体。
+
+英文稿（`"lang": "en"`）不分中西文，正文、标题、题注统一 Times New Roman；首行缩进 0.5 英寸；摘要标签写作 Abstract、Keywords；参考文献标题写作 References。完整 OOXML 键值见 `references/format-spec.md`。
 
 ## 图表规范
 

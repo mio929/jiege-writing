@@ -25,6 +25,8 @@ from docx.shared import Cm, Pt
 
 CN_FONT = "宋体"
 EN_FONT = "Times New Roman"
+# 输出语种：zh 中文稿（宋体+Times New Roman），en 英文稿（全文 Times New Roman）
+LANG = "zh"
 
 TOKEN = re.compile(r"\{\{([^}]+)\}\}")
 HEAD_NUM = re.compile(r"^(\d+(?:\.\d+)*)\s+(.*)$")
@@ -121,25 +123,59 @@ def patch_settings(doc):
 
 
 # ------------------------------------------------------------------ 段落
-def add_run(p, text, size, bold=False, sup=False):
-    """按字符类别拆 run：希腊字母单独成段，必用 Times New Roman。"""
+SUP_CHARS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+SUP_MAP = str.maketrans(SUP_CHARS, "0123456789")
+RICH = re.compile(r"(\^\{[^}]*\}|_\{[^}]*\})")
+SUP_RUN = re.compile(r"([%s]+)" % SUP_CHARS)
+
+
+def add_run(p, text, size, bold=False, sup=False, sub=False):
+    """带行内语法的文本：^{上标}、_{下标}，以及 Unicode 上标字符（²³¹）自动转真上标。"""
+    if not text:
+        return _emit(p, text, size, bold, sup, False, sub)
+    last = None
+    for tok in RICH.split(text):
+        if not tok:
+            continue
+        if tok.startswith("^{") and tok.endswith("}"):
+            last = add_run(p, tok[2:-1], size, bold, sup=True)
+            continue
+        if tok.startswith("_{") and tok.endswith("}"):
+            last = add_run(p, tok[2:-1], size, bold, sub=True)
+            continue
+        for seg in SUP_RUN.split(tok):
+            if not seg:
+                continue
+            if all(c in SUP_CHARS for c in seg):
+                last = add_run(p, seg.translate(SUP_MAP), size, bold, sup=True)
+            else:
+                last = _split_greek(p, seg, size, bold, sup, sub)
+    return last
+
+
+def _split_greek(p, text, size, bold, sup, sub):
     if text and GREEK.search(text):
         last = None
         for seg in GREEK_SPLIT.split(text):
             if seg:
-                last = _emit(p, seg, size, bold, sup, bool(GREEK.fullmatch(seg)))
+                last = _emit(p, seg, size, bold, sup, bool(GREEK.fullmatch(seg)), sub)
         return last
-    return _emit(p, text, size, bold, sup, False)
+    return _emit(p, text, size, bold, sup, False, sub)
 
 
-def _emit(p, text, size, bold, sup, greek=False):
+def _emit(p, text, size, bold, sup, greek=False, sub=False):
     r = p.add_run(text)
     r.font.size = Pt(size)
     r.font.bold = bold
     rpr = r._element.get_or_add_rPr()
     set_rfonts(rpr)
     rfonts = rpr.find(qn("w:rFonts"))
-    if greek:
+    if LANG == "en":
+        # 英文稿：四类字体位一律 Times New Roman，不设中文提示
+        for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+            rfonts.set(qn(attr), EN_FONT)
+        rfonts.set(qn("w:hint"), "default")
+    elif greek:
         for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
             rfonts.set(qn(attr), EN_FONT)
         rfonts.set(qn("w:hint"), "default")
@@ -147,11 +183,13 @@ def _emit(p, text, size, bold, sup, greek=False):
         rfonts.set(qn("w:hint"), "eastAsia")
     if sup:
         r.font.superscript = True
+    if sub:
+        r.font.subscript = True
     return r
 
 
 def new_para(doc, indent_chars=0, align=None, before=0, after=0, line=1.5,
-             hanging_pt=0, body_pt=12.0):
+             hanging_pt=0, body_pt=12.0, indent_pt=0):
     p = doc.add_paragraph()
     pf = p.paragraph_format
     pf.alignment = align if align is not None else WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -163,6 +201,8 @@ def new_para(doc, indent_chars=0, align=None, before=0, after=0, line=1.5,
         pf.left_indent = Pt(hanging_pt)
         pf.first_line_indent = Pt(-hanging_pt)
         pf.tab_stops.add_tab_stop(Pt(hanging_pt))
+    elif indent_pt:
+        pf.first_line_indent = Pt(indent_pt)
     elif indent_chars:
         pf.first_line_indent = Pt(body_pt * indent_chars)
         p._p.get_or_add_pPr().find(qn("w:ind")).set(
@@ -340,22 +380,30 @@ def resolve_refs(raw):
 
 # ------------------------------------------------------------------ 字数
 HAN = re.compile(r"[\u4e00-\u9fff]")
+WORD = re.compile(r"[A-Za-z][A-Za-z0-9'\-]*")
+
+
+def _count(text):
+    """中文数汉字，英文数词。"""
+    clean = TOKEN.sub("", text or "")
+    if LANG == "en":
+        return len(WORD.findall(clean))
+    return len(HAN.findall(clean))
 
 
 def word_stats(spec, blocks):
-    """按口径分列统计：正文、标题、摘要关键词、表格占位。
+    """按口径分列统计：正文、标题、摘要关键词。
 
     正文只算 p 段，不含 h1 标题与 __TABLE_n__ 占位段。
     """
     body = heads = 0
     for kind, text in blocks:
-        clean = TOKEN.sub("", text)
-        n = len(HAN.findall(clean))
+        n = _count(text)
         if kind == "h1":
             heads += n
         elif not text.startswith("__TABLE"):
             body += n
-    front = sum(len(HAN.findall(x or "")) for x in (spec.get("abstract"), spec.get("keywords")))
+    front = sum(_count(x) for x in (spec.get("abstract"), spec.get("keywords")))
     return {"body": body, "headings": heads, "front": front}
 
 
@@ -369,8 +417,9 @@ def parse_target(t):
 
 def report_words(spec, stats):
     tgt = spec.get("word_target")
-    msg = "字数：正文 %d 汉字（另标题 %d、摘要关键词 %d）" % (
-        stats["body"], stats["headings"], stats["front"])
+    unit = "词" if LANG == "en" else "汉字"
+    msg = "字数：正文 %d %s（另标题 %d、摘要关键词 %d）" % (
+        stats["body"], unit, stats["headings"], stats["front"])
     if not tgt:
         print(msg + "；未设 word_target", file=sys.stderr)
         return
@@ -396,7 +445,12 @@ def build(spec, out_path, check_only=False):
     body_pt = float(st.get("body_pt", 12))
     ref_pt = float(st.get("ref_pt", 10.5))
     line = float(st.get("line", 1.5))
-    refs_title = spec.get("refs_title", "参考文献")
+    global LANG
+    LANG = (spec.get("lang") or "zh").lower()
+    en = LANG == "en"
+    refs_title = spec.get("refs_title", "References" if en else "参考文献")
+    lbl_abs, lbl_kw = ("Abstract: ", "Keywords: ") if en else ("摘要：", "关键词：")
+    ind = dict(indent_pt=36) if en else dict(indent_chars=2)
 
     order, seq, secs = {}, [], []
     for kind, text in blocks:
@@ -446,11 +500,11 @@ def build(spec, out_path, check_only=False):
     p = new_para(doc, align=WD_ALIGN_PARAGRAPH.CENTER, after=18, line=line, body_pt=body_pt)
     add_run(p, spec.get("author", ""), author_pt, bold=True)
 
-    p = new_para(doc, indent_chars=2, after=6, line=line, body_pt=body_pt)
-    add_run(p, "摘要：", body_pt, bold=True)
+    p = new_para(doc, after=6, line=line, body_pt=body_pt, **ind)
+    add_run(p, lbl_abs, body_pt, bold=True)
     fill(p, spec.get("abstract", ""), body_pt, False, order, ref_pt)
-    p = new_para(doc, indent_chars=2, after=12, line=line, body_pt=body_pt)
-    add_run(p, "关键词：", body_pt, bold=True)
+    p = new_para(doc, after=12, line=line, body_pt=body_pt, **ind)
+    add_run(p, lbl_kw, body_pt, bold=True)
     add_run(p, spec.get("keywords", ""), body_pt)
 
     sec_ids = {s: ID_SEC_BASE + i for i, s in enumerate(secs, start=1)}
@@ -471,7 +525,7 @@ def build(spec, out_path, check_only=False):
             close_bookmark(p, bid)
             add_run(p, " " + rest, body_pt, bold=True)
         else:
-            p = new_para(doc, indent_chars=2, line=line, body_pt=body_pt)
+            p = new_para(doc, line=line, body_pt=body_pt, **ind)
             fill(p, text, body_pt, False, order, ref_pt)
 
     p = new_para(doc, before=18, after=6, line=line, body_pt=body_pt)
