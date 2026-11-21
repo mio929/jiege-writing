@@ -31,6 +31,8 @@
 
 仓库里技能本体在 `skills/jiege-writing/`，整目录拷到对应位置即可。
 
+> **WorkBuddy 用户看这里**：下面 WorkBuddy 一节有一个分享链接，点开即可一键安装，不用 clone 仓库。
+
 ```bash
 git clone https://github.com/mio929/jiege-writing.git
 ```
@@ -56,7 +58,16 @@ gemini skills install https://github.com/mio929/jiege-writing.git --path skills/
 # 或手动拷到 ~/.gemini/skills/
 ```
 
-**WorkBuddy**
+**WorkBuddy（仅国内版）**
+
+最快的方式是打开分享页，点「在 WorkBuddy 打开」直接安装：
+
+**<https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261121TpQBDMaOk7n06idu1lToib&share_way=link&sig=CKwpmHyjvwRuenSl>**
+
+> ⚠️ 这个分享链接**只能用于国内版 WorkBuddy**（workbuddy.cn），海外版 WorkBuddy 无法识别，请改用下面的手动方式。
+> 分享页会显示分享者昵称，除此之外不含任何账号、学校或使用记录信息。链接若失效，说明分享已撤回，同样走手动方式。
+
+手动安装：
 
 ```bash
 cp -r jiege-writing/skills/jiege-writing ~/.workbuddy/skills/
