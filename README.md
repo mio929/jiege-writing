@@ -2,7 +2,7 @@
 
 把中文课程论文从作业要求做到可提交的 Word 成稿：读要求、核验文献、写正文、排版、自检。
 
-按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 Claude Code、OpenAI Codex、Gemini CLI、DeepSeek Harness、WorkBuddy、Cursor、VS Code Copilot 等能读取 `SKILL.md` 的客户端。
+按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 WorkBuddy、Claude Code、OpenAI Codex、Gemini CLI、DeepSeek Harness、Cursor、VS Code Copilot 等能读取 `SKILL.md` 的客户端。
 
 > **适用范围**
 > 主要面向中文**课程论文、读书报告、文献综述、方法学评述**，篇幅 3000–8000 字，一二级标题结构，10–30 条参考文献。
@@ -41,6 +41,15 @@
 git clone https://github.com/mio929/jiege-writing.git
 ```
 
+**WorkBuddy**
+
+```bash
+cp -r jiege-writing/skills/jiege-writing ~/.workbuddy/skills/
+# 项目级放 .workbuddy/skills/，只对该工作区生效
+```
+
+用户级技能对全部项目可用，项目级技能只作用于所在工作区。放好后在技能列表里能看到，新建会话生效。
+
 **Claude Code**
 
 ```bash
@@ -72,14 +81,6 @@ cp -r jiege-writing/skills/jiege-writing ~/.dsh/skills/
 
 dsh 只扫描**一层**目录：`~/.dsh/skills/jiege-writing/SKILL.md` 能被发现，`~/.dsh/skills/组名/jiege-writing/SKILL.md` 找不到。目录名要与 frontmatter 的 `name` 一致。放进去即被收录，改完不用重启；显式调用写 `/jiege-writing`。
 
-**WorkBuddy**
-
-```bash
-cp -r jiege-writing/skills/jiege-writing ~/.workbuddy/skills/
-# 项目级放 .workbuddy/skills/，只对该工作区生效
-```
-
-用户级技能对全部项目可用，项目级技能只作用于所在工作区。放好后在技能列表里能看到，新建会话生效。
 
 **Cursor / VS Code Copilot**
 
