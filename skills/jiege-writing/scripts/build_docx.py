@@ -545,9 +545,14 @@ def build(spec, out_path, check_only=False):
 
 
 def compress_nums(nums):
-    """把编号压成区间：连续 3 个以上用短横线，2 个仍用逗号分开（GB/T 7714 习惯）。
+    """把编号压成区间：连续序号起讫间用短横线，两个连续也算区间。
+
+    GB/T 7714-2015：同一处引用多篇文献时，各序号全部列出，用逗号分隔；
+    遇连续序号，起讫序号间用短横线连接。两个连续（4、5）同为连续序号，
+    写作 [4-5]，不是 [4,5]。
 
     [1,2,3,5,7,8] -> [(1,3), (5,None), (7,8)]
+    [4,5]         -> [(4,5)]
     """
     nums = sorted(set(nums))
     out, i = [], 0
@@ -555,20 +560,65 @@ def compress_nums(nums):
         j = i
         while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
             j += 1
-        if j - i >= 2:
+        if j > i:
             out.append((nums[i], nums[j]))
         else:
-            out.extend((n, None) for n in nums[i:j + 1])
+            out.append((nums[i], None))
         i = j + 1
     return out
 
 
 def format_multi(nums):
-    """[1,2,3] -> '[1-3]'；[1,3] -> '[1,3]'；[1,3,4,5,8] -> '[1,3-5,8]'。"""
+    """[1,2,3] -> '[1-3]'；[4,5] -> '[4-5]'；[1,3,4,5,8] -> '[1,3-5,8]'。"""
     parts = []
     for a, b in compress_nums(nums):
         parts.append("%d-%d" % (a, b) if b is not None else str(a))
     return "[%s]" % ",".join(parts)
+
+
+# REF 域的数字图片开关：只留需要的那半边括号，避免出现 [1][2][3]
+FMT_OPEN = '\\#"[0"'      # [1
+FMT_MID = '\\#"0"'        # 1
+FMT_CLOSE = '\\#"0]"'     # 1]
+FMT_SINGLE = '\\#"[0]"'   # [1]
+
+
+def add_citation(p, nums, size):
+    """插入一处文献引用，每个编号各自成域，括号只在首尾出现一次。
+
+    连续区间写成 [4-5]，其中 4 与 5 仍是可 Ctrl+单击 的 REF 域；不连续写
+    [1,3-5]。全部用域而不是纯文本，是为了让合并引用也能跳转到文献表。
+    """
+    nums = sorted(set(nums))
+    if len(nums) == 1:
+        n = nums[0]
+        _field(p, " REF %s%03d \\n \\h %s " % (BM_REF, n, FMT_SINGLE),
+               "[%d]" % n, size, sup=True)
+        return
+
+    # 展开成渲染序列：数字、逗号、短横线
+    seq = []
+    for idx, (a, b) in enumerate(compress_nums(nums)):
+        if idx:
+            seq.append(("sep", ","))
+        seq.append(("num", a))
+        if b is not None:
+            seq.append(("sep", "-"))
+            seq.append(("num", b))
+
+    first = next(i for i, x in enumerate(seq) if x[0] == "num")
+    last = max(i for i, x in enumerate(seq) if x[0] == "num")
+    for i, (kind, val) in enumerate(seq):
+        if kind == "sep":
+            add_run(p, val, size, sup=True)
+            continue
+        if i == first:
+            fmt, cached = FMT_OPEN, "[%d" % val
+        elif i == last:
+            fmt, cached = FMT_CLOSE, "%d]" % val
+        else:
+            fmt, cached = FMT_MID, "%d" % val
+        _field(p, " REF %s%03d \\n \\h %s " % (BM_REF, val, fmt), cached, size, sup=True)
 
 
 def fill(p, text, size, bold, order, ref_pt):
@@ -580,15 +630,8 @@ def fill(p, text, size, bold, order, ref_pt):
         if body.startswith("@"):
             _field(p, " REF %s%s \\h " % (BM_SEC, body[1:].replace(".", "_")), body[1:], size)
         else:
-            nums = sorted(order[k.strip()] for k in body.split("|"))
-            if len(nums) == 1:
-                # 单条：用域，可 Ctrl+单击跳转。编号格式已是 [%1]，不再包括号
-                _field(p, " REF %s%03d \\n \\h " % (BM_REF, nums[0]),
-                       "[%d]" % nums[0], size, sup=True)
-            else:
-                # 多条：按区间压缩成纯文本。Word 的域无法表示 [1-3] 这种范围，
-                # 每次构建都会重算编号，所以写死的文本始终与文献表一致。
-                add_run(p, format_multi(nums), size, sup=True)
+            # 单条与多条都走域，合并引用的每个编号都能跳转
+            add_citation(p, [order[k.strip()] for k in body.split("|")], size)
         pos = m.end()
     if pos < len(text):
         add_run(p, text[pos:], size, bold)
