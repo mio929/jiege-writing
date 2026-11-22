@@ -1,16 +1,15 @@
 ---
 name: jiege-writing
-description: 中文学术课程论文、文献综述、方法学评述的全流程写作与 Word 排版技能。当用户要求写课程论文、读书报告、文献综述，或要把 Markdown、口述材料整理成符合学校格式规范的 .docx，或需要处理中文学术文档的字体字号、上标、行距、交叉引用、GB/T 7714 参考文献著录时使用。覆盖选题确认、文献核验、正文撰写、去 AI 味改写、docx 生成与交付自检。支持一至三级标题、多文献合并引用、图表字体规范与坐标图轴对齐，适用于课程作业与期刊投稿初稿。
-version: 2.1.3
-display_name: 杰哥写作
-display_name_en: Jiege Writing
-description_zh: 中文学术课程论文的全流程写作与 Word 排版，含文献核验、交叉引用、GB/T 7714 著录与交付自检。
-description_en: End-to-end Chinese academic course-paper writing and Word typesetting, covering reference verification, cross-references, GB/T 7714 citations and pre-submission checks.
-license: MIT
+description: 中文课程论文、文献综述、方法学评述的写作与 Word 排版。用于写课程论文、读书报告、文献综述，把 Markdown 或口述材料整理成符合学校格式的 .docx，或处理中文学术文档的字体字号、上标、行距、交叉引用、GB/T 7714 著录、插图与图注。含选题确认、文献核验、去 AI 味改写、交付自检。
+whenToUse: 写课程论文、读书报告、文献综述、方法学评述；把材料整理成中文 Word 论文；排版或检查中文学术文档格式；核验参考文献与 GB/T 7714 著录；往论文里加文献配图与图注。
+version: 2.2.0
 metadata:
+  display_name: 杰哥写作
+  display_name_en: Jiege Writing
+  license: MIT
   scope: 中文课程论文
   language: zh-CN
-agent_created: true
+  requires: python-docx, lxml
 ---
 
 # 杰哥写作
@@ -19,9 +18,9 @@ agent_created: true
 
 ## 适用范围
 
-**适合**：课程论文、读书报告、文献综述、方法学评述、研究方案初稿。篇幅 3000–8000 字，一二级标题结构，10–30 条参考文献。
+**适合**：课程论文、读书报告、文献综述、方法学评述、研究方案初稿。篇幅 3000–8000 字，一二级标题结构，10–30 条参考文献，可含表格与插图。
 
-**不适合**：学位论文。三级标题（`2.1.1`）会直接抛异常，图表题注与目录页码也没有实现。要写毕业论文，先把末尾「已知限制」那几条补齐。
+**不适合**：学位论文。三级标题（`2.1.1`）虽已支持，但目录、页码、页眉页脚都没有实现。要写毕业论文，先把末尾「已知限制」那几条补齐。
 
 **参考文献必须人工复核**。脚本给的是通行默认值，学校的模板常在这几处不同：GB/T 7714 用 2015 版还是 2025 版、中文条目全角还是半角标点、列不列 DOI。交稿前逐条对一遍学校给的示例。
 
@@ -31,6 +30,10 @@ agent_created: true
 pip install python-docx lxml
 python scripts/build_docx.py assets/example_spec.json -o 试排.docx
 python scripts/check_docx.py 试排.docx --strict
+
+# 有插图时，构建后再跑一步（详见 references/figures.md）
+python scripts/insert_figs.py spec.json 试排.docx --check
+python scripts/insert_figs.py spec.json 试排.docx -o 成稿.docx
 ```
 
 看完 `assets/example_spec.json` 就知道 spec 长什么样，改内容即可开工。
@@ -91,6 +94,17 @@ spec 结构见 `assets/example_spec.json`，完整案例见 `references/case-stu
 脚本已处理下列易错项，**不要重复实现**：中文宋体 + 西文 Times New Roman 的四字体位、中文标点的 `hint="eastAsia"`、希腊字母单独成 run、参考文献 `[1]` 自动编号配 21 pt 制表位、`REF … \n \h` 交叉引用、上标统一小四、逐段关闭孤行控制、兼容模式提到 15。
 
 **表格需要自行补**。`build_docx.py` 没有 table 类型的 block。做法是在正文里放占位段 `__TABLE_1__`，构建后用 `python-docx` 定位替换为三线表；实现要点见 `references/case-study.md`。
+
+**插图分两步**。`build_docx.py` 只出段落，图走占位 + 后处理：
+
+```json
+["p", "__FIG_1__"],
+["p", "__CAP_1__Figure 1　重金属进入农田土壤的六类人为来源（引自文献@alengebawy2021@）"]
+```
+
+顶层再写 `"figures": {"1": {"src": "figs/f1.jpg", "width_cm": 8.6}}`，构建后跑 `scripts/insert_figs.py`。图注里的文献编号写 `@键@`（不是 `{{键}}`），由脚本按正文首次出现顺序换算，这样图注不会改变编号次序。**图和图注必须包进无边框单格表格并禁止行跨页**——Word 的「与下段同页」对含图段落不起作用，写同一段落又会让图片压住图注。完整规则、取图流程、尺寸与故障见 `references/figures.md`。
+
+**图不能用图像生成模型造。** 课程论文的图只有三条来路：自己的实测数据、文献原图、自绘示意图。生成图无法标来源、无法复核，评审一眼能看出。文献图优先取开放获取的，图注写「（引自文献[n]）」；自绘要写「（据文献[n] 改绘）」。这一条在动手前就跟用户讲清楚。
 
 ### 第五步：交付前自检
 
@@ -153,9 +167,37 @@ python scripts/check_docx.py 论文.docx --strict
 
 图和表里的文字，不分位置，统一两条：英文与数字用 **Times New Roman**，中文用 **宋体**。
 
-范围包括图题、表题、图内文字（轴标签、刻度标签、图例、数据标注）、表内文字、表注。图和表的题注本身是正文段落，五号加粗居中；图内文字按图宽 8–9 cm 取 9 pt（约小五），不要出了大图再缩——缩了字号就不受控。
+范围包括图题、表题、图内文字（轴标签、刻度标签、图例、数据标注）、表内文字、表注。图内文字按图宽 8–9 cm 取 9 pt（约小五），不要出了大图再缩——缩了字号就不受控。
+
+**题注字号以学校模板为准**：多数要求 9 pt（小五）居中，也有要求五号加粗的。同一篇里所有图注用同一字号，不要一张一个样。
 
 表格的做法见 `references/case-study.md` 第 4 节：每个单元格的 run 都要设 `w:rFonts`，含中文的还要带 `w:hint="eastAsia"`，否则 Word 会拿西文字体去排中文。`check_docx.py` 对表格内段落是盲区，这部分只能靠脚本设置正确 + 目视复核。
+
+### 图注
+
+正文用「图 1」，图注用 `Figure 1` 起头，后接中文说明，末尾标来源：
+
+```
+Figure 1　重金属进入农田土壤的六类人为来源（引自文献[7]）
+```
+
+- 编号与正文同一套。图注里写 `@键@`，脚本按正文首次出现顺序换成 `[n]`；写成 `{{键}}` 会打乱排序。
+- 一张图配一句结论，不要只写「××示意图」。
+- 多面板逐个交代 (a)(b) 或 A/B/C。
+- 文献图写「（引自文献[n]）」，自绘写「（据文献[n] 改绘）」。**没有来源的图不要放。**
+
+### 文献图
+
+课程论文里的机制图、框架图、研究区图，多数来自文献。优先取开放获取的：
+
+```bash
+python scripts/fetch_pmc_figs.py PMC7460318 --list          # 看图题再挑
+python scripts/fetch_pmc_figs.py PMC7460318 -o figs/ --only g004
+```
+
+插图走占位 + 后处理，图和图注包进无边框单格表格（`scripts/insert_figs.py`）。为什么不直接放段落、不用 `keepNext`，见 `references/figures.md` 第 5 节——这是实测踩出来的。
+
+**禁止用图像生成模型造图。** 见「第四步」末尾那一段。
 
 插图用 `scripts/plot_style.py`，字体、线宽、刻度方向都定死了：
 
@@ -215,7 +257,7 @@ print(audit(ax))                           # 空列表才算过
 | 限制 | 现象 | 绕法 |
 |---|---|---|
 | 表格 | spec 无 table block；check 对表格盲区 | 占位段 + 后处理，见 case-study |
-| 图与表题注 | 无题注机制，无交叉引用 | 在 Word 里手工「插入题注 + 交叉引用」 |
+| 图 | spec 无 figure block；图注不做交叉引用域 | 占位段 + `insert_figs.py`，见 figures.md |
 | 页码与目录 | 完全未实现 | Word 里手工加页脚 PAGE 域 |
 | 页边距 | 写死上下 2.54、左右 3.17 cm | 改 `build()` 里的 `Cm()` 数值 |
 | 字号与行距 | 可通过 `spec["styles"]` 覆盖，但无文档 | 传 `{"title_pt":18,"body_pt":12,"line":1.5}` |
@@ -245,16 +287,39 @@ print(audit(ax))                           # 空列表才算过
 - Word 标题栏显示「兼容性模式」
 - 交叉引用显示「错误！未找到引用源」
 - 引用编号显示成 `[[1]]`（双层方括号）
+- 图在页底、图注单独跑到下一页
+- 图注压住图片下缘
 - 写入 docx 报 PermissionError，但文件明明存在
 - Word COM 报 `-2147418111` 或 `RPC_E_CALL_REJECTED`
+
+## 安装与跨 harness 使用
+
+这个技能是纯文件 + Python 脚本，不依赖任何平台的专有接口，放在哪个 harness 里都能跑。唯一的运行时依赖是 `python-docx` 与 `lxml`（插图的字体处理还要 `matplotlib` 时另说，见 `plot_style.py`）。
+
+| harness | 放置位置 | 备注 |
+|---|---|---|
+| DeepSeek Harness（dsh） | `~/.dsh/skills/jiege-writing/` 或 `~/.agents/skills/jiege-writing/` | 只扫一层，`skills/组/名/SKILL.md` 找不到 |
+| 其他读取 `SKILL.md` 的 harness | 项目内 `.agents/skills/`，或用户级 skills 目录 | 同一套 frontmatter |
+
+三个硬要求，踩了就不被识别：
+
+1. **目录名与 frontmatter 的 `name` 必须一致**，且为 kebab-case（`jiege-writing`）。
+2. **frontmatter 必须有 `name` 与 `description`**。`description` 是唯一的触发依据，要把「写课程论文 / 文献综述 / Word 排版 / GB/T 7714」这类词放前面——dsh 只展示前 500 字符。
+3. **脚本用相对路径**。所有命令都在技能根目录下执行（`python scripts/build_docx.py …`），不要写死绝对路径，否则换机器就断。
+
+不需要 npm、MCP、任何账号授权。装完即可用。
 
 ## 资源
 
 - `scripts/build_docx.py` —— 稿件 JSON → 规范 docx，含编号、交叉引用、字体处理
 - `scripts/check_docx.py` —— 交付前自检，读回 docx 校验字体、字号、域、孤行控制、字数
+- `scripts/insert_figs.py` —— 图占位 → 无边框表格包裹的图 + 图注，自动换算文献编号
+- `scripts/fetch_pmc_figs.py` —— 从 PMC 开放获取论文取原图与图题
+- `scripts/plot_style.py` —— 数据图统一样式，字体与坐标轴对齐
 - `assets/example_spec.json` —— 可直接改用的最小模板
 - `references/input-formats.md` —— 从 PDF、Word、图片里读作业要求的方法
 - `references/checklist.md` —— 开工前与交稿前的双份清单
+- `references/figures.md` —— 插图与图注：三条来路、取图、尺寸、四个故障
 - `references/case-study.md` —— 一篇 4600 字论文的完整复盘，含表格补丁写法
 - `references/format-spec.md` —— 字号字体参数表与 OOXML 键值
 - `references/docx-pitfalls.md` —— 踩坑清单：现象 → 成因 → 改法

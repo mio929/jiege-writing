@@ -2,11 +2,11 @@
 
 把中文课程论文从作业要求做到可提交的 Word 成稿：读要求、核验文献、写正文、排版、自检。
 
-按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 Claude Code、OpenAI Codex、Gemini CLI、WorkBuddy、Cursor、VS Code Copilot。
+按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 Claude Code、OpenAI Codex、Gemini CLI、DeepSeek Harness、Cursor、VS Code Copilot 等能读取 `SKILL.md` 的客户端。
 
 > **适用范围**
 > 主要面向中文**课程论文、读书报告、文献综述、方法学评述**，篇幅 3000–8000 字，一二级标题结构，10–30 条参考文献。
-> **不适用于学位论文**。三级标题（`2.1.1`）会直接抛异常，图表题注、目录、页码也没有实现。写毕业论文请先把 `SKILL.md` 末尾「已知限制」补齐。
+> **不适用于学位论文**。目录、页码、页眉页脚都没有实现。写毕业论文请先把 `SKILL.md` 末尾「已知限制」补齐。
 
 > **参考文献请务必自行复核**
 > 脚本给的是通行默认值，不是标准答案。各校模板常在这三处不一致：
@@ -30,13 +30,12 @@
 | 参考文献凭印象写，卷期页错、作者数不合规 | 强制走 DOI 回查，`format_ref()` 按语种切标点、自动截断作者、区分六种文献类型 |
 | Word 排版反复调，字体混入 Arial、上标大小不一、孤行没关 | 稿件与排版分离，`build_docx.py` 一次生成；`check_docx.py` 读回校验九项 |
 | 图表字体不统一、坐标轴与刻度线错位 | `plot_style.py` 把字体、线宽、轴定位定死；`audit()` 出图前自检四类问题 |
+| 机制图要从文献里找，图与图注总被拆到两页 | `fetch_pmc_figs.py` 取开放获取原图；`insert_figs.py` 用无边框表格把图与图注锁在一页，编号自动对齐正文 |
 | 改八轮之后格式全乱，说不清哪次引入的 | spec 与脚本分离，改文字不动格式；每轮报数字指标 |
 
 ## 安装
 
 仓库里技能本体在 `skills/jiege-writing/`，整目录拷到对应位置即可。
-
-> **WorkBuddy 用户看这里**：下面 WorkBuddy 一节有一个分享链接，点开即可一键安装，不用 clone 仓库。
 
 ```bash
 git clone https://github.com/mio929/jiege-writing.git
@@ -63,20 +62,11 @@ gemini skills install https://github.com/mio929/jiege-writing.git --path skills/
 # 或手动拷到 ~/.gemini/skills/
 ```
 
-**WorkBuddy（仅国内版）**
-
-最快的方式是打开分享页，点「在 WorkBuddy 打开」直接安装：
-
-**<https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261121smeC0xPM4tyjjegy8ZUT4F&share_way=link&sig=R59RbmcUtoVdfb1f>**
-
-> ⚠️ 这个分享链接**只能用于国内版 WorkBuddy**（workbuddy.cn），海外版 WorkBuddy 无法识别，请改用下面的手动方式。
-> 分享页会显示分享者昵称，除此之外不含任何账号、学校或使用记录信息。链接若失效，说明分享已撤回，同样走手动方式。
-
-手动安装：
+**手动安装（通用）**
 
 ```bash
-cp -r jiege-writing/skills/jiege-writing ~/.workbuddy/skills/
-# 项目级放 .workbuddy/skills/
+cp -r jiege-writing/skills/jiege-writing ~/.dsh/skills/       # DeepSeek Harness
+cp -r jiege-writing/skills/jiege-writing ~/.agents/skills/    # 其他读取 SKILL.md 的 harness
 ```
 
 **Cursor / VS Code Copilot**
@@ -119,11 +109,14 @@ skills/jiege-writing/
 │   ├── format-spec.md           # 字号字体参数表与 OOXML 键值
 │   ├── gbt7714.md               # 六类文献格式、核验流程、常见错误
 │   ├── cross-reference.md       # 交叉引用的域机制与手工步骤
+│   ├── figures.md               # 插图与图注：三条来路、取图、尺寸、四个故障
 │   └── docx-pitfalls.md         # 踩坑清单：现象 → 成因 → 改法
 ├── scripts/
 │   ├── build_docx.py            # 稿件 JSON → 规范 docx
 │   ├── check_docx.py            # 交付前自检
-│   └── plot_style.py            # 插图样式：中英字体分离、轴与刻度对齐
+│   ├── insert_figs.py           # 图占位 → 表格包裹的图 + 图注，编号对齐正文
+│   ├── fetch_pmc_figs.py        # 从 PMC 开放获取论文取原图与图题
+│   └── plot_style.py            # 数据图样式：中英字体分离、轴与刻度对齐
 └── assets/
     └── example_spec.json        # 最小可运行模板
 
@@ -158,7 +151,7 @@ python scripts/check_docx.py 论文.docx --target 4500-5000 --by word
 | 限制 | 说明 |
 |---|---|
 | 表格 | spec 无 table block；`check_docx.py` 对表格内段落是盲区 |
-| 图表题注 | 无题注机制，交叉引用要在 Word 里手工插 |
+| 图 | spec 无 figure block；用 `insert_figs.py` 后处理，图注不做交叉引用域 |
 | 页码 / 目录 | 未实现 |
 | 页边距 | 写死上下 2.54、左右 3.17 cm |
 
