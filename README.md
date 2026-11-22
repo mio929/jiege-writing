@@ -2,7 +2,7 @@
 
 把中文课程论文从作业要求做到可提交的 Word 成稿：读要求、核验文献、写正文、排版、自检。
 
-按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 Claude Code、OpenAI Codex、Gemini CLI、DeepSeek Harness、Cursor、VS Code Copilot 等能读取 `SKILL.md` 的客户端。
+按 [Agent Skills](https://agentskills.io) 开放标准组织，同一份目录可直接用于 Claude Code、OpenAI Codex、Gemini CLI、DeepSeek Harness、WorkBuddy、Cursor、VS Code Copilot 等能读取 `SKILL.md` 的客户端。
 
 > **适用范围**
 > 主要面向中文**课程论文、读书报告、文献综述、方法学评述**，篇幅 3000–8000 字，一二级标题结构，10–30 条参考文献。
@@ -62,18 +62,30 @@ gemini skills install https://github.com/mio929/jiege-writing.git --path skills/
 # 或手动拷到 ~/.gemini/skills/
 ```
 
-**手动安装（通用）**
+**DeepSeek Harness**
 
 ```bash
-cp -r jiege-writing/skills/jiege-writing ~/.dsh/skills/       # DeepSeek Harness
-cp -r jiege-writing/skills/jiege-writing ~/.agents/skills/    # 其他读取 SKILL.md 的 harness
+cp -r jiege-writing/skills/jiege-writing ~/.dsh/skills/
+# 与其他 agent 工具共用则放 ~/.agents/skills/
+# 项目级放 .dsh/skills/ 或 .agents/skills/，只对当前项目生效
 ```
+
+dsh 只扫描**一层**目录：`~/.dsh/skills/jiege-writing/SKILL.md` 能被发现，`~/.dsh/skills/组名/jiege-writing/SKILL.md` 找不到。目录名要与 frontmatter 的 `name` 一致。放进去即被收录，改完不用重启；显式调用写 `/jiege-writing`。
+
+**WorkBuddy**
+
+```bash
+cp -r jiege-writing/skills/jiege-writing ~/.workbuddy/skills/
+# 项目级放 .workbuddy/skills/，只对该工作区生效
+```
+
+用户级技能对全部项目可用，项目级技能只作用于所在工作区。放好后在技能列表里能看到，新建会话生效。
 
 **Cursor / VS Code Copilot**
 
 Cursor 读 `.agents/skills/` 与 `~/.cursor/skills/`；Copilot 读 `~/.copilot/skills/` 与 `.github/skills/`。两者也都兼容 `.claude/skills/`。
 
-装完重启会话。Claude Code 用 `/jiege-writing` 显式调用，其余平台靠描述自动匹配。
+Claude Code 与 DeepSeek Harness 都可以用 `/jiege-writing` 显式调用，其余平台靠 `description` 自动匹配。dsh 监听技能目录，改完不必重启；其他客户端装完重启一次会话。
 
 ## 依赖
 
